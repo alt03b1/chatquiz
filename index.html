@@ -1,0 +1,1045 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>ChatQuiz</title>
+  <style>
+    :root {
+      --bg: #22262b;
+      --panel: #22262b;          /* keep cards same as bg for flat look */
+      --panel2: #22262b;
+      --text: rgba(255,255,255,0.92);
+      --muted: rgba(255,255,255,0.65);
+      --border: rgba(255,255,255,0.12);
+
+      --choiceBg: #1a1d22;       /* answer choice buttons */
+      --btn: #1a1d22;            /* normal buttons */
+      --btnHover: rgba(255,255,255,0.08);
+
+      --good: #1aa64a;           /* correct outline */
+      --bad: #b3261e;            /* wrong outline */
+
+      --shadow: none;            /* flat */
+      --radius: 18px;
+      --radius2: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 22px;
+    }
+
+
+    .wrap {
+      width: 980px;
+      max-width: 100%;
+      display: grid;
+      gap: 18px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .header {
+      padding: 18px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: transparent;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header .meta {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .content { padding: 18px 20px; }
+
+    textarea {
+      width: 100%;
+      min-height: 240px;
+      resize: vertical;
+      background: rgba(0,0,0,0.25);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--radius2);
+      padding: 12px 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 13px;
+      line-height: 1.4;
+      outline: none;
+    }
+    textarea:focus { border-color: rgba(255,255,255,0.22); }
+
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--btn);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 120ms ease, transform 120ms ease, opacity 120ms ease;
+      user-select: none;
+    }
+    button:hover { background: var(--btnHover); }
+    button:active { transform: translateY(1px); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .danger { border-color: rgba(239,68,68,0.35); }
+    .success { border-color: rgba(34,197,94,0.35); }
+
+    .error {
+      margin-top: 10px;
+      color: rgba(255,255,255,0.88);
+      background: rgba(239,68,68,0.12);
+      border: 1px solid rgba(239,68,68,0.25);
+      padding: 10px 12px;
+      border-radius: var(--radius2);
+      display: none;
+      white-space: pre-wrap;
+      font-size: 13px;
+    }
+
+    .progress {
+      height: 8px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.10);
+    }
+    .progress > div {
+      height: 100%;
+      width: 0%;
+      background: rgba(255,255,255,0.45);
+      transition: width 180ms ease;
+    }
+
+    .qStem {
+      margin: 12px 0 16px;
+      color: rgba(255,255,255,0.94);
+      font-size: 18px;     /* match .choiceText */
+      line-height: 1.35;   /* match .choiceText */
+      font-weight: 700;    /* bold */
+    }
+
+    .choices {
+      display: grid;
+      gap: 10px;
+    }
+
+    .choiceBtn {
+      width: 100%;
+      text-align: left;
+      border-radius: var(--radius2);
+      padding: 14px 14px;
+      background: var(--choiceBg);
+      border: 1px solid rgba(255,255,255,0.10);
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      transition: border-color 140ms ease, background 140ms ease;
+    }
+    .choiceBtn:hover { background: rgba(255,255,255,0.06); }
+
+    .choiceText {
+      color: rgba(255,255,255,0.92);
+      line-height: 1.35;
+      font-size: 18px;     /* same as question */
+      font-weight: 400;    /* not bold */
+    }
+
+    .outlineGood { border-color: var(--good) !important; }
+    .outlineBad  { border-color: var(--bad) !important; }
+
+
+    .footer {
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+      background: var(--panel);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .muted { color: var(--muted); font-size: 13px; }
+
+    .pill {
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.10);
+      font-size: 12px;
+      color: rgba(255,255,255,0.78);
+    }
+
+    /* Tutorial modal */
+    .pillBtn {
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.10);
+      font-size: 12px;
+      color: rgba(255,255,255,0.92);
+      font-weight: 700;
+    }
+    .pillBtn:hover { background: rgba(255,255,255,0.12); }
+
+    .modalOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 22px;
+      z-index: 999;
+    }
+    .modal {
+      width: 980px;
+      max-width: 100%;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    .modalHeader {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .modalTitle {
+      font-weight: 900;
+      letter-spacing: -0.01em;
+    }
+    .modalBody { padding: 16px; display: grid; gap: 14px; }
+    .modalGrid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+    @media (min-width: 860px) {
+      .modalGrid { grid-template-columns: 1fr 1fr; }
+    }
+    .smallTA { min-height: 170px; }
+    .tinyTA { min-height: 120px; }
+    .hint {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .tutorialText ol {
+      margin: 8px 0 14px 20px;
+      padding: 0;
+      color: rgba(255,255,255,0.9);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .tutorialText li { margin: 6px 0; }
+    .tutorialText p { margin: 10px 0; }
+    .modalClose {
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: rgba(0,0,0,0.0);
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+    .modalClose:hover { background: rgba(255,255,255,0.06); }
+
+    .hidden { display: none !important; }
+
+    .endStats {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .big {
+      font-size: 40px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+    }
+
+    .kbd {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      padding: 3px 8px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(0,0,0,0.25);
+      color: rgba(255,255,255,0.8);
+    }
+
+    /* Specific button styling */
+    #nextBtn {
+      background: #4259ff;
+      border: none;
+    }
+
+    #nextBtn:hover { filter: brightness(1.05); }
+    #nextBtn:active { transform: translateY(1px); }
+
+    #prevBtn,
+    #explainBtn {
+      background: var(--bg);
+      border: 1px solid #25292e;
+    }
+
+    #prevBtn:hover,
+    #explainBtn:hover {
+      background: rgba(255,255,255,0.04);
+    }
+
+    /* Greyed out explain button when disabled */
+    #explainBtn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <!-- LANDING -->
+    <div id="landing" class="card">
+      <div class="header">
+        <div>
+          <div style="font-weight:800; font-size:16px;">Paste Quiz Here</div>
+          <div class="meta">Then hit <span class="kbd">Start</span>.</div>
+        </div>
+        <button id="tutorialBtn" class="pillBtn" type="button">Help</button>
+      </div>
+      <div class="content">
+        <textarea id="jsonInput" spellcheck="false" placeholder='1. Really hard example question?
+A. Wrong answer
+B. Right answer
+C. Wrong answer
+D. Wrong answer
+E. Wrong answer
+
+2. ...
+
+Answer Key:
+1. B
+2. ...'></textarea>
+
+        <div class="row" style="margin-top:12px;">
+          <button id="startBtn" class="success">Start</button>
+          <button id="clearBtn" class="danger">Clear</button>
+        </div>
+        <div id="errorBox" class="error"></div>
+      </div>
+    </div>
+
+    <!-- QUIZ -->
+    <div id="quiz" class="card hidden">
+      <div class="header">
+        <div class="meta" id="topMeta">Question</div>
+        <div style="min-width:240px; width: 40%; max-width: 420px;">
+          <div class="progress" title="Progress">
+            <div id="progressBar"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="qStem" id="stem"></div>
+        <div class="choices" id="choices"></div>
+      </div>
+
+      <div class="footer">
+        <div class="row">
+          <button id="explainBtn">Explain</button>
+        </div>
+
+        <div class="row">
+          <button id="prevBtn">Previous</button>
+          <button id="nextBtn">Next</button>
+        </div>
+      </div>
+    </div> <!-- close #quiz -->
+
+    <!-- END -->
+    <div id="end" class="card hidden">
+      <div class="header">
+        <div>
+          <div style="font-weight:800; font-size:16px;">Done</div>
+          <div class="meta">Yay.</div>
+        </div>
+        <div class="pill" id="endPill">0/0</div>
+      </div>
+      <div class="content">
+        <div class="big" id="endPercent">0%</div>
+        <div class="endStats">
+          <div class="muted" id="endDetail">You got 0 right.</div>
+        </div>
+        <div class="row" style="margin-top:14px;">
+          <button id="restartBtn" class="success">New Quiz</button>
+          <button id="reviewBtn">Review</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- TUTORIAL MODAL -->
+  <div id="tutorialOverlay" class="modalOverlay" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="tutorialTitle">
+      <div class="modalHeader">
+        <div>
+          <div id="tutorialTitle" class="modalTitle">Guide</div>
+          <div class="hint">I don't know how to code. ChatGPT does, but things aren't perfect. Here are some guidelines.</div>
+        </div>
+        <button id="tutorialClose" class="modalClose" type="button">Close</button>
+      </div>
+      <div class="modalBody">
+
+        <div class="modalGrid">
+
+          <div class="card" style="border-radius: var(--radius2);">
+            <div class="header" style="padding: 12px 14px; border-bottom: 1px solid var(--border);">
+              <div class="meta">Got a prompt?</div>
+            </div>
+            <div class="content" style="padding: 12px 14px;">
+              <div class="tutorialText">
+                <p style="margin-top:0;">Generate practice questions. Press the copy button. Paste them in the big box. Press Start. Do the questions.</p>
+          
+                <p><b>MAKE SURE:</b></p>
+                <ol>
+                  <li>Questions are numbered.</li>
+                  <li>Questions have 5 answer choices, labelled A-E</li>
+                  <li>Answer key is at the end.</li>
+                </ol>
+          
+                <p class="hint" style="margin-bottom:0;">I tried my best to account for variations in question bank formatting. Might still not work</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="card" style="border-radius: var(--radius2);">
+            <div class="header" style="padding: 12px 14px; border-bottom: 1px solid var(--border);">
+              <div class="meta">Need a prompt?</div>
+              <div class="row">
+                <button id="copyExampleBtn" type="button">Copy</button>
+              </div>
+            </div>
+            <div class="content" style="padding: 12px 14px;">
+              <textarea id="examplePrompt" class="smallTA" spellcheck="false" readonly></textarea>
+              <div class="hint" style="margin-top:10px;">Been using this prompt since Block 1. It works.</div>
+            </div>
+          </div>
+
+        </div>
+
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ---------- State ----------
+  let deck = null;              // { questions: [...] }
+  let idx = 0;                  // current question index
+  let selected = [];            // selected answer index per question (null if unanswered)
+  let locked = [];              // whether question was answered/locked in
+  const letters = ["A","B","C","D","E"];
+
+  // ---------- Elements ----------
+  const landingEl = document.getElementById("landing");
+  const quizEl = document.getElementById("quiz");
+  const endEl = document.getElementById("end");
+
+  const jsonInput = document.getElementById("jsonInput");
+  const startBtn = document.getElementById("startBtn");
+  const clearBtn = document.getElementById("clearBtn");
+  const errorBox = document.getElementById("errorBox");
+
+  const topMeta = document.getElementById("topMeta");
+  const progressBar = document.getElementById("progressBar");
+  const stemEl = document.getElementById("stem");
+  const choicesEl = document.getElementById("choices");
+
+  const prevBtn = document.getElementById("prevBtn");
+  const nextBtn = document.getElementById("nextBtn");
+  const explainBtn = document.getElementById("explainBtn");
+
+  const endPill = document.getElementById("endPill");
+  const endPercent = document.getElementById("endPercent");
+  const endDetail = document.getElementById("endDetail");
+  const restartBtn = document.getElementById("restartBtn");
+  const reviewBtn = document.getElementById("reviewBtn");
+
+  // tutorial elements
+  const tutorialBtn = document.getElementById("tutorialBtn");
+  const tutorialOverlay = document.getElementById("tutorialOverlay");
+  const tutorialClose = document.getElementById("tutorialClose");
+  const copyExampleBtn = document.getElementById("copyExampleBtn");
+  const examplePromptEl = document.getElementById("examplePrompt");
+
+  // ---------- Helpers ----------
+
+    // --- Random helpers (better than Math.random for shuffles) ---
+  function randInt(max) {
+    // returns integer in [0, max)
+    const buf = new Uint32Array(1);
+    crypto.getRandomValues(buf);
+    return buf[0] % max;
+  }
+
+  function shuffleInPlace(arr) {
+    // Fisher–Yates
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = randInt(i + 1);
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function shuffleChoicesInDeck(d) {
+    if (!d || !Array.isArray(d.questions)) return d;
+
+    d.questions.forEach((q) => {
+      if (!Array.isArray(q.choices) || q.choices.length !== 5) return;
+
+      // permutation of indices 0..4
+      const order = shuffleInPlace([0,1,2,3,4]);
+
+      const newChoices = order.map(i => q.choices[i]);
+      const newAnswerIndex = order.indexOf(q.answerIndex);
+
+      // optional: keep originals around (handy later, doesn’t break anything)
+      q._originalChoices = q.choices.slice();
+      q._originalAnswerIndex = q.answerIndex;
+
+      q.choices = newChoices;
+      q.answerIndex = newAnswerIndex;
+    });
+
+    return d;
+  }
+
+  function showError(msg) {
+    errorBox.style.display = "block";
+    errorBox.textContent = msg;
+  }
+
+  function clearError() {
+    errorBox.style.display = "none";
+    errorBox.textContent = "";
+  }
+
+  function openTutorial() {
+    tutorialOverlay.style.display = "flex";
+    tutorialOverlay.setAttribute("aria-hidden", "false");
+  }
+
+  function closeTutorial() {
+    tutorialOverlay.style.display = "none";
+    tutorialOverlay.setAttribute("aria-hidden", "true");
+  }
+
+  function copyToClipboard(text, onOkLabel, btnEl) {
+    navigator.clipboard.writeText(text).then(() => {
+      if (!btnEl) return;
+      const old = btnEl.textContent;
+      btnEl.textContent = onOkLabel || "Copied!";
+      setTimeout(() => { btnEl.textContent = old; }, 900);
+    }).catch(() => {
+      showError("Couldn’t copy to clipboard (browser blocked it).\n\nHere it is so you can manually copy:\n\n" + text);
+    });
+  }
+
+  const EXAMPLE_PROMPT =
+`You are a medical educator helping a DO student prepare for the USMLE Step 1 and COMLEX Level 1 exams. Create 10 clinically relevant multiple-choice questions based only on the content in the presentation provided. Do not include any material that is not explicitly in the slides, even if it is related or appears in future courses.
+
+Each question should:
+
+- Use a brief clinical vignette format
+
+- Include 5 answer choices labelled A-E with only one correct option
+
+- Provide an answer key at the very end
+
+- Do not label the questions, just number them
+
+- Focus exclusively on the learning objectives and ensure the questions assess application-level knowledge, not just recall
+
+- Whenever possible, write answer choices so that multiple options could appear correct, but only one is the best answer. If the learning objective is purely recall-based, a straightforward single correct answer is acceptable.`;
+
+  // populate modal example textbox
+  if (examplePromptEl) examplePromptEl.value = EXAMPLE_PROMPT;
+
+  function validateDeck(obj) {
+    if (!obj || typeof obj !== "object") throw new Error("Quiz must be an object.");
+    if (!Array.isArray(obj.questions)) throw new Error('Missing "questions": [...] array.');
+    if (obj.questions.length === 0) throw new Error("questions array is empty.");
+
+    obj.questions.forEach((q, i) => {
+      if (!q || typeof q !== "object") throw new Error(`Question ${i + 1} must be an object.`);
+      if (typeof q.stem !== "string" || !q.stem.trim()) throw new Error(`Question ${i + 1} missing non-empty "stem".`);
+
+      if (!Array.isArray(q.choices) || q.choices.length !== 5) {
+        throw new Error(`Question ${i + 1} "choices" must be an array of 5 strings.`);
+      }
+      q.choices.forEach((c, j) => {
+        if (typeof c !== "string" || !c.trim()) {
+          throw new Error(`Question ${i + 1} choice ${letters[j]} must be a non-empty string.`);
+        }
+      });
+
+      if (!Number.isInteger(q.answerIndex) || q.answerIndex < 0 || q.answerIndex > 4) {
+        throw new Error(`Question ${i + 1} "answerIndex" must be an integer 0–4.`);
+      }
+    });
+
+    return obj;
+  }
+
+  function parseAndValidateJson(raw) {
+    let obj;
+    try {
+      obj = JSON.parse(raw);
+    } catch (e) {
+      throw new Error("Invalid JSON. Tip: no trailing commas, use double quotes.\n\n" + e.message);
+    }
+    return validateDeck(obj);
+  }
+
+  /**
+  * Flexible entry point:
+  * - try JSON first
+  * - if JSON fails, try plaintext parsing (numbered Qs + A–E + answer key)
+  */
+  function parseAndValidateFlexible(raw) {
+    const input = (raw || "").trim();
+    if (!input) throw new Error("Paste a quiz first.");
+
+    // 1) JSON path (unchanged behavior if valid)
+    try {
+      return parseAndValidateJson(input);
+    } catch (_) {
+      // 2) Plaintext fallback
+      const deck = parsePlaintextQuiz(input);
+      return validateDeck(deck);
+    }
+  }
+
+  function stripInlineMarkdown(s) {
+    return (s || "")
+      // bold/italic markers
+      .replace(/\*\*(.*?)\*\*/g, "$1")
+      .replace(/__(.*?)__/g, "$1")
+      .replace(/\*(.*?)\*/g, "$1")
+      .replace(/_(.*?)_/g, "$1")
+      // inline code
+      .replace(/`([^`]+)`/g, "$1")
+      // collapse whitespace
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function parsePlaintextQuiz(raw) {
+    const original = (raw || "").replace(/\r\n/g, "\n").trim();
+    if (!original) throw new Error("Paste a quiz first.");
+
+    // ---- Split into question part vs answer-key part (markdown-tolerant, colon optional)
+    const keyHeaderRe =
+      /^\s*(?:#{1,6}\s*)?(?:\*\*)?\s*(answer\s*key|answers)\s*:?\s*(?:\*\*)?\s*$/im;
+
+    const keyMatch = keyHeaderRe.exec(original);
+    const questionTextRaw = keyMatch ? original.slice(0, keyMatch.index).trim() : original;
+    const answerText = keyMatch ? original.slice(keyMatch.index).trim() : original;
+
+    const answers = parseAnswerKey(answerText);
+
+    // ---- Normalize question numbering so headings like "### **1.**" become "1. "
+    // This lets the existing block slicer work reliably.
+    const qLines = questionTextRaw.split("\n");
+    const qHeaderLineRe = /^\s*(?:#{1,6}\s*)?(?:\*\*)?\s*(\d{1,3})\s*[\.)]?\s*(?:\*\*)?\s*$/i;
+
+    const normalizedLines = qLines.map(line => {
+      const m = line.match(qHeaderLineRe);
+      if (m) return `${m[1]}.`; // becomes a clean "1."
+      return line;
+    });
+
+    const questionText = normalizedLines.join("\n");
+
+    // ---- Find question starts like "1." or "1)"
+    const qStart = /^\s*(\d+)\s*[.)]\s*$/gm;     // line that is just "1." after normalization
+    const qStartInline = /^\s*(\d+)\s*[.)]\s+/gm; // also supports "1. Stem..." in one line
+
+    // Collect starts from BOTH patterns
+    const starts = [];
+
+    let m1;
+    while ((m1 = qStart.exec(questionText)) !== null) {
+      starts.push({ index: m1.index, qNum: Number(m1[1]), type: "line" });
+    }
+    let m2;
+    while ((m2 = qStartInline.exec(questionText)) !== null) {
+      starts.push({ index: m2.index, qNum: Number(m2[1]), type: "inline" });
+    }
+
+    // sort & de-dup (sometimes "1." could match both if oddly formatted)
+    starts.sort((a, b) => a.index - b.index);
+    const deduped = [];
+    for (const s of starts) {
+      if (deduped.length === 0 || deduped[deduped.length - 1].index !== s.index) deduped.push(s);
+    }
+
+    if (deduped.length === 0) {
+      throw new Error(
+        "Couldn’t find any numbered questions.\n\nExpected something like:\n" +
+        "1. Question...\nA. ...\nB. ...\nC. ...\nD. ...\nE. ..."
+      );
+    }
+
+    // ---- Slice blocks
+    const blocks = deduped.map((s, i) => {
+      const end = (i + 1 < deduped.length) ? deduped[i + 1].index : questionText.length;
+      return { qNum: s.qNum, block: questionText.slice(s.index, end).trim() };
+    });
+
+    const questions = blocks.map(({ qNum, block }) => {
+      const lines = block.split("\n");
+
+      // Remove the leading "N." line OR strip "N. " prefix if inline
+      if (/^\s*\d+\s*[.)]\s*$/.test(lines[0])) {
+        lines.shift(); // drop the standalone "1."
+      } else {
+        lines[0] = lines[0].replace(/^\s*\d+\s*[.)]\s+/, "");
+      }
+
+      // Choices: allow optional bullets/indentation and markdown around the label
+      // Accept: "A. text", "A) text", also "- A. text"
+      const choiceRe = /^\s*(?:[-*]\s*)?(?:\*\*)?\s*([A-E])\s*(?:\*\*)?\s*[\)\.\:\-]\s+(.*\S)\s*$/;
+
+      const stemLines = [];
+      const choiceMap = {};
+      let lastChoiceLetter = null;
+      let inChoices = false;
+
+      for (const line of lines) {
+        const mm = line.match(choiceRe);
+        if (mm) {
+          inChoices = true;
+          lastChoiceLetter = mm[1];
+          const t = mm[2].trim();
+          choiceMap[lastChoiceLetter] = choiceMap[lastChoiceLetter]
+            ? (choiceMap[lastChoiceLetter] + " " + t)
+            : t;
+          continue;
+        }
+
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        // Ignore horizontal rules / separators
+        if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) continue;
+
+        if (!inChoices) {
+          stemLines.push(trimmed);
+        } else if (lastChoiceLetter) {
+          // allow wrapped choice lines
+          choiceMap[lastChoiceLetter] += " " + trimmed;
+        }
+      }
+
+      let stem = stemLines.join(" ").trim();
+      if (!stem) throw new Error(`Question ${qNum}: missing stem text.`);
+
+      // Clean inline markdown from stem/choices (optional but matches your “no markdown” preference)
+      stem = stripInlineMarkdown(stem);
+
+      const lettersAE = ["A","B","C","D","E"];
+      const choices = lettersAE.map(L => stripInlineMarkdown((choiceMap[L] || "").trim()));
+      const nonEmpty = choices.filter(Boolean).length;
+
+      if (nonEmpty !== 5) {
+        throw new Error(
+          `Question ${qNum}: expected 5 choices labeled A–E, found ${nonEmpty}.\n\n` +
+          `Make sure choices look like:\nA. ...\nB. ...\nC. ...\nD. ...\nE. ...`
+        );
+      }
+
+      const ansLetter = answers.get(qNum);
+      if (!ansLetter) {
+        throw new Error(
+          `Missing answer for Question ${qNum} in the answer key.\n\n` +
+          `Add something like:\nAnswer Key\n${qNum}. B`
+        );
+      }
+
+      const answerIndex = "ABCDE".indexOf(ansLetter);
+      if (answerIndex < 0) throw new Error(`Question ${qNum}: invalid answer letter "${ansLetter}".`);
+
+      return { stem, choices, answerIndex };
+    });
+
+    return { questions };
+  }
+
+  function parseAnswerKey(answerSectionText) {
+    const t = (answerSectionText || "").replace(/\r\n/g, "\n");
+
+    // Matches:
+    // "1. B"
+    // "1. **B**"
+    // "1) C"
+    // "10: D"
+    const pairRe = /^\s*(\d{1,3})\s*[\)\.\:\-]\s*(?:\*\*)?\s*([A-E])\s*(?:\*\*)?\s*$/gmi;
+
+    const map = new Map();
+    let m;
+    while ((m = pairRe.exec(t)) !== null) {
+      map.set(Number(m[1]), m[2].toUpperCase());
+    }
+
+    if (map.size === 0) {
+      throw new Error(
+        "Couldn’t find an answer key.\n\nExpected something like:\n" +
+        "Answer Key\n1. B\n2. C\n3. A"
+      );
+    }
+
+    return map;
+  }
+
+
+
+
+
+  function setView(which) {
+    landingEl.classList.toggle("hidden", which !== "landing");
+    quizEl.classList.toggle("hidden", which !== "quiz");
+    endEl.classList.toggle("hidden", which !== "end");
+  }
+
+  function updateProgress() {
+    const total = deck.questions.length;
+    const pct = ((idx + 1) / total) * 100;
+    progressBar.style.width = pct + "%";
+    topMeta.textContent = `${idx + 1} / ${total}`;
+  }
+
+  function renderQuestion() {
+    const q = deck.questions[idx];
+    updateProgress();
+
+    stemEl.textContent = q.stem;
+    choicesEl.innerHTML = "";
+
+    const isLocked = locked[idx] === true;
+    const sel = selected[idx];
+
+    q.choices.forEach((text, choiceIndex) => {
+      const btn = document.createElement("button");
+      btn.className = "choiceBtn";
+      btn.type = "button";
+
+      // outlines after lock
+      if (isLocked) {
+        const correct = q.answerIndex;
+
+        // outline what they picked
+        if (choiceIndex === sel) {
+          btn.classList.add(sel === correct ? "outlineGood" : "outlineBad");
+        }
+
+        // if they were wrong, ALSO outline the correct choice
+        if (sel !== correct && choiceIndex === correct) {
+          btn.classList.add("outlineGood");
+        }
+      }
+
+      const choiceText = document.createElement("div");
+      choiceText.className = "choiceText";
+      choiceText.textContent = `${letters[choiceIndex]}. ${text}`;
+      btn.appendChild(choiceText);
+      btn.addEventListener("click", () => {
+        if (locked[idx]) return; // lock after first click
+
+        selected[idx] = choiceIndex;
+        locked[idx] = true;
+        renderQuestion();
+      });
+
+      choicesEl.appendChild(btn);
+    });
+
+    explainBtn.disabled = !locked[idx];
+
+    const last = (idx === deck.questions.length - 1);
+
+    prevBtn.disabled = (idx === 0);
+    nextBtn.disabled = false;                 // keep enabled
+    nextBtn.textContent = last ? "Done" : "Next";
+  }
+
+  function computeScore() {
+    let right = 0;
+    deck.questions.forEach((q, i) => {
+      if (locked[i] && selected[i] === q.answerIndex) right++;
+    });
+    return { right, total: deck.questions.length };
+  }
+
+  function goEnd() {
+    const { right, total } = computeScore();
+    const pct = total ? Math.round((right / total) * 100) : 0;
+
+    endPill.textContent = `${right}/${total}`;
+    endPercent.textContent = `${pct}%`;
+    endDetail.textContent = `You got ${right} right out of ${total}.`;
+
+    setView("end");
+  }
+
+  function copyExplainPrompt() {
+    const q = deck.questions[idx];
+    const sel = selected[idx];
+    const selLetter = (sel === null || sel === undefined) ? "None" : letters[sel];
+
+    const prompt =
+`Explain this multiple-choice question and why each option is right/wrong. Keep it concise and Step/COMLEX-style.
+
+Question:
+${q.stem}
+
+Choices:
+A. ${q.choices[0]}
+B. ${q.choices[1]}
+C. ${q.choices[2]}
+D. ${q.choices[3]}
+E. ${q.choices[4]}
+
+My answer: ${selLetter}
+`;
+
+    navigator.clipboard.writeText(prompt).then(() => {
+      const old = explainBtn.textContent;
+      explainBtn.textContent = "Copied!";
+      setTimeout(() => { explainBtn.textContent = old; }, 900);
+    }).catch(() => {
+      // fallback
+      showError("Couldn’t copy to clipboard (browser blocked it). You can manually copy from the prompt below:\n\n" + prompt);
+    });
+  }
+
+  // ---------- Events ----------
+  startBtn.addEventListener("click", () => {
+    clearError();
+    try {
+      deck = parseAndValidateFlexible(jsonInput.value.trim());
+
+      // 🔀 shuffle answers once per "Start"
+      shuffleChoicesInDeck(deck);
+
+      idx = 0;
+      selected = new Array(deck.questions.length).fill(null);
+      locked = new Array(deck.questions.length).fill(false);
+      setView("quiz");
+      renderQuestion();
+    } catch (e) {
+      showError(e.message);
+    }
+  });
+
+
+  clearBtn.addEventListener("click", () => {
+    jsonInput.value = "";
+    clearError();
+  });
+
+  // tutorial modal events
+  tutorialBtn.addEventListener("click", () => {
+    clearError();
+    openTutorial();
+  });
+
+  tutorialClose.addEventListener("click", closeTutorial);
+
+  tutorialOverlay.addEventListener("click", (e) => {
+    if (e.target === tutorialOverlay) closeTutorial();
+  });
+
+  copyExampleBtn.addEventListener("click", () => {
+    copyToClipboard(EXAMPLE_PROMPT, "Copied!", copyExampleBtn);
+  });
+
+  prevBtn.addEventListener("click", () => {
+    if (idx > 0) { idx--; renderQuestion(); }
+  });
+
+  nextBtn.addEventListener("click", () => {
+    const last = (idx === deck.questions.length - 1);
+    if (last) return goEnd();
+    idx++;
+    renderQuestion();
+  });
+
+  explainBtn.addEventListener("click", () => copyExplainPrompt());
+
+  restartBtn.addEventListener("click", () => {
+    deck = null;
+    idx = 0;
+    selected = [];
+    locked = [];
+    setView("landing");
+  });
+
+  reviewBtn.addEventListener("click", () => {
+    idx = 0;
+    setView("quiz");
+    renderQuestion();
+  });
+
+  // keyboard shortcuts
+  document.addEventListener("keydown", (e) => {
+    // close tutorial modal with Esc
+    if (e.key === "Escape" && tutorialOverlay.style.display === "flex") {
+      closeTutorial();
+      return;
+    }
+
+    if (quizEl.classList.contains("hidden")) return;
+
+    if (e.key >= "1" && e.key <= "5" && !locked[idx]) {
+      const choiceIndex = Number(e.key) - 1;
+      selected[idx] = choiceIndex;
+      locked[idx] = true;
+      renderQuestion();
+    }
+    if (e.key === "ArrowLeft") prevBtn.click();
+    if (e.key === "ArrowRight") nextBtn.click();
+  });
+</script>
+</body>
+</html>
