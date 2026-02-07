@@ -332,7 +332,10 @@
           <div style="font-weight:800; font-size:16px;">Paste Quiz Here</div>
           <div class="meta">Then hit <span class="kbd">Start</span>.</div>
         </div>
-        <button id="tutorialBtn" class="pillBtn" type="button">Help</button>
+        <div class="row">
+          <button id="savedBtn" class="pillBtn" type="button">Saved</button>
+          <button id="tutorialBtn" class="pillBtn" type="button">Help</button>
+        </div>
       </div>
       <div class="content">
         <textarea id="jsonInput" spellcheck="false" placeholder='1. Really hard example question?
@@ -350,6 +353,7 @@ Answer Key:
 
         <div class="row" style="margin-top:12px;">
           <button id="startBtn" class="success">Start</button>
+          <button id="saveBtn">Save</button>
           <button id="clearBtn" class="danger">Clear</button>
         </div>
         <div id="errorBox" class="error"></div>
@@ -435,6 +439,13 @@ Answer Key:
                   <li>Questions have 5 answer choices, labelled A-E</li>
                   <li>Answer key is at the end.</li>
                 </ol>
+
+                <p><b>Features:</b></p>
+                <ol>
+                  <li>Random answer choice order.</li>
+                  <li>Save question banks.</li>
+                  <li>Answer key is at the end.</li>
+                </ol>
           
                 <p class="hint" style="margin-bottom:0;">I tried my best to account for variations in question bank formatting. Might still not work</p>
               </div>
@@ -460,7 +471,27 @@ Answer Key:
 
       </div>
     </div>
+  
+  <!-- SAVED BANKS MODAL -->
+  <div id="savedOverlay" class="modalOverlay" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="savedTitle">
+      <div class="modalHeader">
+        <div>
+          <div id="savedTitle" class="modalTitle">Saved banks</div>
+          <div class="hint">Loads into big box. Still need to press start.</div>
+        </div>
+        <button id="savedClose" class="modalClose" type="button">Close</button>
+      </div>
+      <div class="modalBody">
+        <div id="savedList" class="card" style="border-radius: var(--radius2);">
+          <div class="content" style="padding: 12px 14px;">
+            <div class="muted">Loading…</div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
+</div>
 
 <script>
   // ---------- State ----------
@@ -501,6 +532,160 @@ Answer Key:
   const tutorialClose = document.getElementById("tutorialClose");
   const copyExampleBtn = document.getElementById("copyExampleBtn");
   const examplePromptEl = document.getElementById("examplePrompt");
+
+  // saved banks elements
+  const savedBtn = document.getElementById("savedBtn");
+  const saveBtn = document.getElementById("saveBtn");
+  const savedOverlay = document.getElementById("savedOverlay");
+  const savedClose = document.getElementById("savedClose");
+  const savedList = document.getElementById("savedList");
+
+  // saved banks state
+  const SAVED_KEY = "chatquiz.savedBanks.v1";
+
+  function safeJsonParse(s, fallback) {
+    try { return JSON.parse(s); } catch { return fallback; }
+  }
+
+  function loadSavedBanks() {
+    const raw = localStorage.getItem(SAVED_KEY);
+    const arr = safeJsonParse(raw, []);
+    return Array.isArray(arr) ? arr : [];
+  }
+
+  function persistSavedBanks(banks) {
+    localStorage.setItem(SAVED_KEY, JSON.stringify(banks));
+  }
+
+  function makeId() {
+    // crypto.randomUUID is supported in modern browsers; fallback if not.
+    return (crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now() + "-" + randInt(1e9));
+  }
+
+  function openSaved() {
+    savedOverlay.style.display = "flex";
+    savedOverlay.setAttribute("aria-hidden", "false");
+    renderSavedList();
+  }
+
+  function closeSaved() {
+    savedOverlay.style.display = "none";
+    savedOverlay.setAttribute("aria-hidden", "true");
+  }
+
+  function formatDate(iso) {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleString(undefined, { year:"numeric", month:"short", day:"2-digit" });
+    } catch { return ""; }
+  }
+
+  function renderSavedList() {
+    const banks = loadSavedBanks()
+      .sort((a,b) => (b.savedAt || "").localeCompare(a.savedAt || "")); // newest first
+
+    const body = savedList.querySelector(".content");
+    body.innerHTML = "";
+
+    if (!banks.length) {
+      const empty = document.createElement("div");
+      empty.className = "muted";
+      empty.textContent = "No saved banks yet. Paste one in, then hit Save.";
+      body.appendChild(empty);
+      return;
+    }
+
+    banks.forEach((bank) => {
+      const row = document.createElement("div");
+      row.style.display = "flex";
+      row.style.alignItems = "center";
+      row.style.justifyContent = "space-between";
+      row.style.gap = "10px";
+      row.style.padding = "10px 0";
+      row.style.borderBottom = "1px solid var(--border)";
+
+      const left = document.createElement("div");
+      const title = document.createElement("div");
+      title.style.fontWeight = "800";
+      title.textContent = bank.title || "(untitled)";
+
+      const meta = document.createElement("div");
+      meta.className = "muted";
+      meta.textContent = `${(bank.count || "") ? bank.count + " q • " : ""}${formatDate(bank.savedAt)}`;
+
+      left.appendChild(title);
+      left.appendChild(meta);
+
+      const actions = document.createElement("div");
+      actions.className = "row";
+
+      const loadBtn = document.createElement("button");
+      loadBtn.textContent = "Load";
+      loadBtn.addEventListener("click", () => {
+        jsonInput.value = bank.raw || "";
+        clearError();
+        closeSaved();
+      });
+
+      const delBtn = document.createElement("button");
+      delBtn.textContent = "Delete";
+      delBtn.className = "danger";
+      delBtn.addEventListener("click", () => {
+        if (!confirm(`Delete "${bank.title || "untitled"}"?`)) return;
+        const next = loadSavedBanks().filter(b => b.id !== bank.id);
+        persistSavedBanks(next);
+        renderSavedList();
+      });
+
+      actions.appendChild(loadBtn);
+      actions.appendChild(delBtn);
+
+      row.appendChild(left);
+      row.appendChild(actions);
+      body.appendChild(row);
+    });
+
+    // remove the last border for cleanliness
+    const rows = body.querySelectorAll("div[style*='border-bottom']");
+    if (rows.length) rows[rows.length - 1].style.borderBottom = "none";
+  }
+
+  function saveCurrentBank() {
+    clearError();
+    const raw = (jsonInput.value || "").trim();
+    if (!raw) return showError("Nothing to save. Paste a quiz first.");
+
+    const title = prompt("Title this bank:");
+    if (title === null) return; // user cancelled
+
+    const cleaned = (title || "").trim();
+    if (!cleaned) return showError("Title can’t be empty.");
+
+    // Optional: try to estimate count (works for JSON; harmless otherwise)
+    let count = "";
+    try {
+      const maybe = parseAndValidateFlexible(raw);
+      count = maybe?.questions?.length ? String(maybe.questions.length) : "";
+    } catch (_) {}
+
+    const banks = loadSavedBanks();
+
+    // if title already exists, confirm overwrite
+    const existingIdx = banks.findIndex(b => (b.title || "").toLowerCase() === cleaned.toLowerCase());
+    if (existingIdx >= 0) {
+      if (!confirm(`Overwrite existing bank named "${cleaned}"?`)) return;
+      banks[existingIdx] = { ...banks[existingIdx], raw, savedAt: new Date().toISOString(), count };
+    } else {
+      banks.push({ id: makeId(), title: cleaned, raw, savedAt: new Date().toISOString(), count });
+    }
+
+    persistSavedBanks(banks);
+
+    // tiny UX feedback
+    const old = saveBtn.textContent;
+    saveBtn.textContent = "Saved!";
+    setTimeout(() => { saveBtn.textContent = old; }, 900);
+  }
 
   // ---------- Helpers ----------
 
@@ -994,6 +1179,21 @@ My answer: ${selLetter}
     copyToClipboard(EXAMPLE_PROMPT, "Copied!", copyExampleBtn);
   });
 
+
+  // saved banks modal events
+  savedBtn.addEventListener("click", () => {
+    clearError();
+    openSaved();
+  });
+
+  savedClose.addEventListener("click", closeSaved);
+
+  savedOverlay.addEventListener("click", (e) => {
+    if (e.target === savedOverlay) closeSaved();
+  });
+
+  saveBtn.addEventListener("click", saveCurrentBank);
+
   prevBtn.addEventListener("click", () => {
     if (idx > 0) { idx--; renderQuestion(); }
   });
@@ -1023,10 +1223,10 @@ My answer: ${selLetter}
 
   // keyboard shortcuts
   document.addEventListener("keydown", (e) => {
-    // close tutorial modal with Esc
-    if (e.key === "Escape" && tutorialOverlay.style.display === "flex") {
-      closeTutorial();
-      return;
+    // close modals with Esc
+    if (e.key === "Escape") {
+      if (tutorialOverlay.style.display === "flex") { closeTutorial(); return; }
+      if (savedOverlay && savedOverlay.style.display === "flex") { closeSaved(); return; }
     }
 
     if (quizEl.classList.contains("hidden")) return;
