@@ -89,6 +89,25 @@
 
     .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 
+    .toggleLabel {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .toggleLabel input {
+      width: 17px;
+      height: 17px;
+      margin: 0;
+      accent-color: #4259ff;
+      cursor: pointer;
+    }
+
     button {
       appearance: none;
       border: 1px solid var(--border);
@@ -147,6 +166,13 @@
       gap: 10px;
     }
 
+    .choiceRow {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: stretch;
+    }
+
     .choiceBtn {
       width: 100%;
       text-align: left;
@@ -160,6 +186,23 @@
       transition: border-color 140ms ease, background 140ms ease;
     }
     .choiceBtn:hover { background: rgba(255,255,255,0.06); }
+    .choiceBtn:disabled { opacity: 1; cursor: default; }
+
+    .choiceBtn.eliminated {
+      opacity: 0.38;
+      text-decoration: line-through;
+      cursor: not-allowed;
+    }
+
+    .eliminateBtn {
+      width: 46px;
+      padding: 0;
+      border-radius: var(--radius2);
+      font-size: 19px;
+      line-height: 1;
+    }
+
+    .eliminateBtn[aria-pressed="true"] { opacity: 0.55; }
 
     .choiceText {
       color: rgba(255,255,255,0.92);
@@ -238,31 +281,12 @@
       letter-spacing: -0.01em;
     }
     .modalBody { padding: 16px; display: grid; gap: 14px; }
-    .modalGrid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 14px;
-    }
-    @media (min-width: 860px) {
-      .modalGrid { grid-template-columns: 1fr 1fr; }
-    }
-    .smallTA { min-height: 170px; }
-    .tinyTA { min-height: 120px; }
+    .smallTA { min-height: 340px; }
     .hint {
       color: var(--muted);
       font-size: 13px;
       line-height: 1.35;
     }
-
-    .tutorialText ol {
-      margin: 8px 0 14px 20px;
-      padding: 0;
-      color: rgba(255,255,255,0.9);
-      font-size: 13px;
-      line-height: 1.45;
-    }
-    .tutorialText li { margin: 6px 0; }
-    .tutorialText p { margin: 10px 0; }
     .modalClose {
       border-radius: 999px;
       padding: 8px 12px;
@@ -320,6 +344,10 @@
       cursor: not-allowed;
     }
 
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0.01ms !important; }
+    }
+
   </style>
 </head>
 <body>
@@ -355,6 +383,10 @@ Answer Key:
           <button id="startBtn" class="success">Start</button>
           <button id="saveBtn">Save</button>
           <button id="clearBtn" class="danger">Clear</button>
+          <label class="toggleLabel" for="shuffleQuestionsInput">
+            <input id="shuffleQuestionsInput" type="checkbox">
+            Randomize question order
+          </label>
         </div>
         <div id="errorBox" class="error"></div>
       </div>
@@ -379,6 +411,7 @@ Answer Key:
       <div class="footer">
         <div class="row">
           <button id="explainBtn">Explain</button>
+          <button id="excludeBtn" type="button" aria-pressed="false">Exclude</button>
         </div>
 
         <div class="row">
@@ -405,72 +438,28 @@ Answer Key:
         <div class="row" style="margin-top:14px;">
           <button id="restartBtn" class="success">New Quiz</button>
           <button id="reviewBtn">Review</button>
+          <button id="reviewIncorrectBtn">Review Incorrect</button>
         </div>
       </div>
     </div>
 
   </div>
 
-  <!-- TUTORIAL MODAL -->
+  <!-- EXAMPLE PROMPT MODAL -->
   <div id="tutorialOverlay" class="modalOverlay" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="tutorialTitle">
       <div class="modalHeader">
-        <div>
-          <div id="tutorialTitle" class="modalTitle">Guide</div>
-          <div class="hint">I don't know how to code. ChatGPT does, but things aren't perfect. Here are some guidelines.</div>
+        <div id="tutorialTitle" class="modalTitle">Example Prompt</div>
+        <div class="row">
+          <button id="copyExampleBtn" type="button">Copy</button>
+          <button id="tutorialClose" class="modalClose" type="button">Close</button>
         </div>
-        <button id="tutorialClose" class="modalClose" type="button">Close</button>
       </div>
       <div class="modalBody">
-
-        <div class="modalGrid">
-
-          <div class="card" style="border-radius: var(--radius2);">
-            <div class="header" style="padding: 12px 14px; border-bottom: 1px solid var(--border);">
-              <div class="meta">Got a prompt?</div>
-            </div>
-            <div class="content" style="padding: 12px 14px;">
-              <div class="tutorialText">
-                <p style="margin-top:0;">Generate practice questions. Press the copy button. Paste them in the big box. Press Start. Do the questions.</p>
-          
-                <p><b>MAKE SURE:</b></p>
-                <ol>
-                  <li>Questions are numbered.</li>
-                  <li>Questions have 5 answer choices, labelled A-E</li>
-                  <li>Answer key is at the end.</li>
-                </ol>
-
-                <p><b>Features:</b></p>
-                <ol>
-                  <li>Random answer choice order.</li>
-                  <li>Save question banks.</li>
-                  <li>Answer key is at the end.</li>
-                </ol>
-          
-                <p class="hint" style="margin-bottom:0;">I tried my best to account for variations in question bank formatting. Might still not work</p>
-              </div>
-            </div>
-          </div>
-          
-          <div class="card" style="border-radius: var(--radius2);">
-            <div class="header" style="padding: 12px 14px; border-bottom: 1px solid var(--border);">
-              <div class="meta">Need a prompt?</div>
-              <div class="row">
-                <button id="copyExampleBtn" type="button">Copy</button>
-              </div>
-            </div>
-            <div class="content" style="padding: 12px 14px;">
-              <textarea id="examplePrompt" class="smallTA" spellcheck="false" readonly></textarea>
-              <div class="hint" style="margin-top:10px;">Been using this prompt since Block 1. It works.</div>
-            </div>
-          </div>
-
-        </div>
-
-        </div>
-
+        <textarea id="examplePrompt" class="smallTA" spellcheck="false" readonly></textarea>
       </div>
     </div>
+  </div>
   
   <!-- SAVED BANKS MODAL -->
   <div id="savedOverlay" class="modalOverlay" aria-hidden="true">
@@ -491,14 +480,15 @@ Answer Key:
       </div>
     </div>
   </div>
-</div>
-
 <script>
   // ---------- State ----------
   let deck = null;              // { questions: [...] }
   let idx = 0;                  // current question index
   let selected = [];            // selected answer index per question (null if unanswered)
   let locked = [];              // whether question was answered/locked in
+  let eliminated = [];          // eliminated answer choices per question
+  let excluded = [];            // questions omitted from score calculations
+  let reviewIndices = null;      // question indices when reviewing a filtered set
   const letters = ["A","B","C","D","E"];
 
   // ---------- Elements ----------
@@ -509,6 +499,7 @@ Answer Key:
   const jsonInput = document.getElementById("jsonInput");
   const startBtn = document.getElementById("startBtn");
   const clearBtn = document.getElementById("clearBtn");
+  const shuffleQuestionsInput = document.getElementById("shuffleQuestionsInput");
   const errorBox = document.getElementById("errorBox");
 
   const topMeta = document.getElementById("topMeta");
@@ -519,12 +510,14 @@ Answer Key:
   const prevBtn = document.getElementById("prevBtn");
   const nextBtn = document.getElementById("nextBtn");
   const explainBtn = document.getElementById("explainBtn");
+  const excludeBtn = document.getElementById("excludeBtn");
 
   const endPill = document.getElementById("endPill");
   const endPercent = document.getElementById("endPercent");
   const endDetail = document.getElementById("endDetail");
   const restartBtn = document.getElementById("restartBtn");
   const reviewBtn = document.getElementById("reviewBtn");
+  const reviewIncorrectBtn = document.getElementById("reviewIncorrectBtn");
 
   // tutorial elements
   const tutorialBtn = document.getElementById("tutorialBtn");
@@ -548,29 +541,39 @@ Answer Key:
   }
 
   function loadSavedBanks() {
-    const raw = localStorage.getItem(SAVED_KEY);
-    const arr = safeJsonParse(raw, []);
-    return Array.isArray(arr) ? arr : [];
+    try {
+      const raw = localStorage.getItem(SAVED_KEY);
+      const arr = safeJsonParse(raw, []);
+      return Array.isArray(arr) ? arr : [];
+    } catch {
+      return [];
+    }
   }
 
   function persistSavedBanks(banks) {
-    localStorage.setItem(SAVED_KEY, JSON.stringify(banks));
+    try {
+      localStorage.setItem(SAVED_KEY, JSON.stringify(banks));
+    } catch {
+      throw new Error("Couldn’t save this bank. Browser storage may be disabled or full.");
+    }
   }
 
   function makeId() {
     // crypto.randomUUID is supported in modern browsers; fallback if not.
-    return (crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now() + "-" + randInt(1e9));
+    return globalThis.crypto?.randomUUID?.() || (Date.now() + "-" + Math.floor(Math.random() * 1e9));
   }
 
   function openSaved() {
     savedOverlay.style.display = "flex";
     savedOverlay.setAttribute("aria-hidden", "false");
     renderSavedList();
+    savedClose.focus();
   }
 
   function closeSaved() {
     savedOverlay.style.display = "none";
     savedOverlay.setAttribute("aria-hidden", "true");
+    savedBtn.focus();
   }
 
   function formatDate(iso) {
@@ -633,8 +636,13 @@ Answer Key:
       delBtn.addEventListener("click", () => {
         if (!confirm(`Delete "${bank.title || "untitled"}"?`)) return;
         const next = loadSavedBanks().filter(b => b.id !== bank.id);
-        persistSavedBanks(next);
-        renderSavedList();
+        try {
+          persistSavedBanks(next);
+          renderSavedList();
+        } catch (e) {
+          closeSaved();
+          showError(e.message);
+        }
       });
 
       actions.appendChild(loadBtn);
@@ -679,7 +687,11 @@ Answer Key:
       banks.push({ id: makeId(), title: cleaned, raw, savedAt: new Date().toISOString(), count });
     }
 
-    persistSavedBanks(banks);
+    try {
+      persistSavedBanks(banks);
+    } catch (e) {
+      return showError(e.message);
+    }
 
     // tiny UX feedback
     const old = saveBtn.textContent;
@@ -690,17 +702,10 @@ Answer Key:
   // ---------- Helpers ----------
 
     // --- Random helpers (better than Math.random for shuffles) ---
-  function randInt(max) {
-    // returns integer in [0, max)
-    const buf = new Uint32Array(1);
-    crypto.getRandomValues(buf);
-    return buf[0] % max;
-  }
-
   function shuffleInPlace(arr) {
     // Fisher–Yates
     for (let i = arr.length - 1; i > 0; i--) {
-      const j = randInt(i + 1);
+      const j = Math.floor(Math.random() * (i + 1));
       [arr[i], arr[j]] = [arr[j], arr[i]];
     }
     return arr;
@@ -717,10 +722,6 @@ Answer Key:
 
       const newChoices = order.map(i => q.choices[i]);
       const newAnswerIndex = order.indexOf(q.answerIndex);
-
-      // optional: keep originals around (handy later, doesn’t break anything)
-      q._originalChoices = q.choices.slice();
-      q._originalAnswerIndex = q.answerIndex;
 
       q.choices = newChoices;
       q.answerIndex = newAnswerIndex;
@@ -742,22 +743,26 @@ Answer Key:
   function openTutorial() {
     tutorialOverlay.style.display = "flex";
     tutorialOverlay.setAttribute("aria-hidden", "false");
+    tutorialClose.focus();
   }
 
   function closeTutorial() {
     tutorialOverlay.style.display = "none";
     tutorialOverlay.setAttribute("aria-hidden", "true");
+    tutorialBtn.focus();
   }
 
-  function copyToClipboard(text, onOkLabel, btnEl) {
-    navigator.clipboard.writeText(text).then(() => {
+  async function copyToClipboard(text, onOkLabel, btnEl) {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard API unavailable");
+      await navigator.clipboard.writeText(text);
       if (!btnEl) return;
       const old = btnEl.textContent;
       btnEl.textContent = onOkLabel || "Copied!";
       setTimeout(() => { btnEl.textContent = old; }, 900);
-    }).catch(() => {
-      showError("Couldn’t copy to clipboard (browser blocked it).\n\nHere it is so you can manually copy:\n\n" + text);
-    });
+    } catch {
+      window.prompt("Copy the text below:", text);
+    }
   }
 
   const EXAMPLE_PROMPT =
@@ -858,8 +863,11 @@ Each question should:
       /^\s*(?:#{1,6}\s*)?(?:\*\*)?\s*(answer\s*key|answers)\s*:?\s*(?:\*\*)?\s*$/im;
 
     const keyMatch = keyHeaderRe.exec(original);
+    if (!keyMatch) {
+      throw new Error("Couldn’t find an Answer Key heading at the end of the quiz.");
+    }
     const questionTextRaw = keyMatch ? original.slice(0, keyMatch.index).trim() : original;
-    const answerText = keyMatch ? original.slice(keyMatch.index).trim() : original;
+    const answerText = original.slice(keyMatch.index).trim();
 
     const answers = parseAnswerKey(answerText);
 
@@ -1030,9 +1038,15 @@ Each question should:
 
   function updateProgress() {
     const total = deck.questions.length;
-    const pct = ((idx + 1) / total) * 100;
+    const reviewPosition = reviewIndices ? reviewIndices.indexOf(idx) : -1;
+    const current = reviewPosition >= 0 ? reviewPosition + 1 : idx + 1;
+    const visibleTotal = reviewIndices ? reviewIndices.length : total;
+    const pct = (current / visibleTotal) * 100;
     progressBar.style.width = pct + "%";
-    topMeta.textContent = `${idx + 1} / ${total}`;
+    topMeta.textContent = reviewIndices
+      ? `Incorrect ${current} / ${visibleTotal} • Question ${idx + 1} / ${total}`
+      : `${current} / ${total}`;
+    if (excluded[idx]) topMeta.textContent += " • Excluded from grade";
   }
 
   function renderQuestion() {
@@ -1044,11 +1058,20 @@ Each question should:
 
     const isLocked = locked[idx] === true;
     const sel = selected[idx];
+    excludeBtn.textContent = excluded[idx] ? "Include in Grade" : "Exclude from Grade";
+    excludeBtn.setAttribute("aria-pressed", String(excluded[idx]));
+    excludeBtn.classList.toggle("danger", excluded[idx]);
 
     q.choices.forEach((text, choiceIndex) => {
+      const row = document.createElement("div");
+      row.className = "choiceRow";
+
       const btn = document.createElement("button");
       btn.className = "choiceBtn";
       btn.type = "button";
+      const isEliminated = eliminated[idx][choiceIndex];
+      if (isEliminated) btn.classList.add("eliminated");
+      btn.disabled = isEliminated || isLocked;
 
       // outlines after lock
       if (isLocked) {
@@ -1070,40 +1093,72 @@ Each question should:
       choiceText.textContent = `${letters[choiceIndex]}. ${text}`;
       btn.appendChild(choiceText);
       btn.addEventListener("click", () => {
-        if (locked[idx]) return; // lock after first click
+        if (locked[idx] || eliminated[idx][choiceIndex]) return;
 
         selected[idx] = choiceIndex;
         locked[idx] = true;
         renderQuestion();
       });
 
-      choicesEl.appendChild(btn);
+      const eliminateBtn = document.createElement("button");
+      eliminateBtn.className = "eliminateBtn";
+      eliminateBtn.type = "button";
+      eliminateBtn.textContent = "👁";
+      eliminateBtn.disabled = isLocked;
+      eliminateBtn.setAttribute("aria-pressed", String(isEliminated));
+      eliminateBtn.setAttribute(
+        "aria-label",
+        `${isEliminated ? "Restore" : "Eliminate"} answer ${letters[choiceIndex]}`
+      );
+      eliminateBtn.title = isEliminated ? "Restore answer" : "Eliminate answer";
+      eliminateBtn.addEventListener("click", () => {
+        if (locked[idx]) return;
+        eliminated[idx][choiceIndex] = !eliminated[idx][choiceIndex];
+        renderQuestion();
+      });
+
+      row.appendChild(btn);
+      row.appendChild(eliminateBtn);
+      choicesEl.appendChild(row);
     });
 
     explainBtn.disabled = !locked[idx];
 
-    const last = (idx === deck.questions.length - 1);
+    const reviewPosition = reviewIndices ? reviewIndices.indexOf(idx) : -1;
+    const last = reviewIndices
+      ? reviewPosition === reviewIndices.length - 1
+      : idx === deck.questions.length - 1;
 
-    prevBtn.disabled = (idx === 0);
+    prevBtn.disabled = reviewIndices ? reviewPosition === 0 : idx === 0;
     nextBtn.disabled = false;                 // keep enabled
     nextBtn.textContent = last ? "Done" : "Next";
   }
 
   function computeScore() {
     let right = 0;
+    let total = 0;
+    let excludedCount = 0;
     deck.questions.forEach((q, i) => {
+      if (excluded[i]) {
+        excludedCount++;
+        return;
+      }
+      total++;
       if (locked[i] && selected[i] === q.answerIndex) right++;
     });
-    return { right, total: deck.questions.length };
+    return { right, total, excludedCount };
   }
 
   function goEnd() {
-    const { right, total } = computeScore();
+    const { right, total, excludedCount } = computeScore();
     const pct = total ? Math.round((right / total) * 100) : 0;
 
     endPill.textContent = `${right}/${total}`;
     endPercent.textContent = `${pct}%`;
-    endDetail.textContent = `You got ${right} right out of ${total}.`;
+    endDetail.textContent = `You got ${right} right out of ${total}.` +
+      (excludedCount ? ` ${excludedCount} question${excludedCount === 1 ? " was" : "s were"} excluded.` : "");
+    reviewIncorrectBtn.disabled = right === total;
+    reviewIndices = null;
 
     setView("end");
   }
@@ -1129,14 +1184,7 @@ E. ${q.choices[4]}
 My answer: ${selLetter}
 `;
 
-    navigator.clipboard.writeText(prompt).then(() => {
-      const old = explainBtn.textContent;
-      explainBtn.textContent = "Copied!";
-      setTimeout(() => { explainBtn.textContent = old; }, 900);
-    }).catch(() => {
-      // fallback
-      showError("Couldn’t copy to clipboard (browser blocked it). You can manually copy from the prompt below:\n\n" + prompt);
-    });
+    copyToClipboard(prompt, "Copied!", explainBtn);
   }
 
   // ---------- Events ----------
@@ -1145,12 +1193,17 @@ My answer: ${selLetter}
     try {
       deck = parseAndValidateFlexible(jsonInput.value.trim());
 
+      if (shuffleQuestionsInput.checked) shuffleInPlace(deck.questions);
+
       // 🔀 shuffle answers once per "Start"
       shuffleChoicesInDeck(deck);
 
       idx = 0;
       selected = new Array(deck.questions.length).fill(null);
       locked = new Array(deck.questions.length).fill(false);
+      eliminated = Array.from({ length: deck.questions.length }, () => new Array(5).fill(false));
+      excluded = new Array(deck.questions.length).fill(false);
+      reviewIndices = null;
       setView("quiz");
       renderQuestion();
     } catch (e) {
@@ -1194,28 +1247,71 @@ My answer: ${selLetter}
   saveBtn.addEventListener("click", saveCurrentBank);
 
   prevBtn.addEventListener("click", () => {
-    if (idx > 0) { idx--; renderQuestion(); }
+    if (reviewIndices) {
+      const position = reviewIndices.indexOf(idx);
+      if (position > 0) {
+        idx = reviewIndices[position - 1];
+        renderQuestion();
+      }
+    } else if (idx > 0) {
+      idx--;
+      renderQuestion();
+    }
   });
 
   nextBtn.addEventListener("click", () => {
-    const last = (idx === deck.questions.length - 1);
-    if (last) return goEnd();
-    idx++;
+    if (reviewIndices) {
+      const position = reviewIndices.indexOf(idx);
+      if (position === reviewIndices.length - 1) return goEnd();
+      idx = reviewIndices[position + 1];
+    } else {
+      const last = (idx === deck.questions.length - 1);
+      if (last) return goEnd();
+      idx++;
+    }
     renderQuestion();
   });
 
   explainBtn.addEventListener("click", () => copyExplainPrompt());
+
+  excludeBtn.addEventListener("click", () => {
+    excluded[idx] = !excluded[idx];
+    if (reviewIndices && excluded[idx]) {
+      const position = reviewIndices.indexOf(idx);
+      reviewIndices.splice(position, 1);
+      if (!reviewIndices.length) return goEnd();
+      idx = reviewIndices[Math.min(position, reviewIndices.length - 1)];
+    }
+    renderQuestion();
+  });
 
   restartBtn.addEventListener("click", () => {
     deck = null;
     idx = 0;
     selected = [];
     locked = [];
+    eliminated = [];
+    excluded = [];
+    reviewIndices = null;
     setView("landing");
+    jsonInput.focus();
   });
 
   reviewBtn.addEventListener("click", () => {
+    reviewIndices = null;
     idx = 0;
+    setView("quiz");
+    renderQuestion();
+  });
+
+  reviewIncorrectBtn.addEventListener("click", () => {
+    reviewIndices = deck.questions
+      .map((q, questionIndex) =>
+        excluded[questionIndex] || selected[questionIndex] === q.answerIndex ? null : questionIndex
+      )
+      .filter(questionIndex => questionIndex !== null);
+    if (!reviewIndices.length) return;
+    idx = reviewIndices[0];
     setView("quiz");
     renderQuestion();
   });
@@ -1226,12 +1322,44 @@ My answer: ${selLetter}
     if (e.key === "Escape") {
       if (tutorialOverlay.style.display === "flex") { closeTutorial(); return; }
       if (savedOverlay && savedOverlay.style.display === "flex") { closeSaved(); return; }
+      if (!quizEl.classList.contains("hidden")) {
+        deck = null;
+        idx = 0;
+        selected = [];
+        locked = [];
+        eliminated = [];
+        excluded = [];
+        reviewIndices = null;
+        setView("landing");
+        jsonInput.focus();
+        return;
+      }
+    }
+
+    const openModal = [tutorialOverlay, savedOverlay]
+      .find(overlay => overlay.style.display === "flex");
+    if (openModal) {
+      if (e.key === "Tab") {
+        const focusable = [...openModal.querySelectorAll("button, textarea, [tabindex]:not([tabindex='-1'])")]
+          .filter(el => !el.disabled);
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+      return;
     }
 
     if (quizEl.classList.contains("hidden")) return;
 
     if (e.key >= "1" && e.key <= "5" && !locked[idx]) {
       const choiceIndex = Number(e.key) - 1;
+      if (eliminated[idx][choiceIndex]) return;
       selected[idx] = choiceIndex;
       locked[idx] = true;
       renderQuestion();
