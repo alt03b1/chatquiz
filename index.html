@@ -1357,7 +1357,16 @@ My answer: ${selLetter}
 
     if (quizEl.classList.contains("hidden")) return;
 
-    if (e.key >= "1" && e.key <= "5" && !locked[idx]) {
+    const shiftedDigit = e.code.match(/^(?:Digit|Numpad)([1-5])$/);
+    if (e.shiftKey && shiftedDigit && !locked[idx]) {
+      e.preventDefault();
+      const choiceIndex = Number(shiftedDigit[1]) - 1;
+      eliminated[idx][choiceIndex] = !eliminated[idx][choiceIndex];
+      renderQuestion();
+      return;
+    }
+
+    if (!e.shiftKey && e.key >= "1" && e.key <= "5" && !locked[idx]) {
       const choiceIndex = Number(e.key) - 1;
       if (eliminated[idx][choiceIndex]) return;
       selected[idx] = choiceIndex;
