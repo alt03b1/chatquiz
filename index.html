@@ -439,6 +439,7 @@ Answer Key:
           <button id="restartBtn" class="success">New Quiz</button>
           <button id="reviewBtn">Review</button>
           <button id="reviewIncorrectBtn">Review Incorrect</button>
+          <button id="explainAllBtn">Explain Incorrect</button>
         </div>
       </div>
     </div>
@@ -489,6 +490,8 @@ Answer Key:
   let eliminated = [];          // eliminated answer choices per question
   let excluded = [];            // questions omitted from score calculations
   let reviewIndices = null;      // question indices when reviewing a filtered set
+  let lastClipboardOffered = ""; // avoid repeatedly prompting for the same clipboard text
+  let clipboardCheckInProgress = false;
   const letters = ["A","B","C","D","E"];
 
   // ---------- Elements ----------
@@ -518,6 +521,7 @@ Answer Key:
   const restartBtn = document.getElementById("restartBtn");
   const reviewBtn = document.getElementById("reviewBtn");
   const reviewIncorrectBtn = document.getElementById("reviewIncorrectBtn");
+  const explainAllBtn = document.getElementById("explainAllBtn");
 
   // tutorial elements
   const tutorialBtn = document.getElementById("tutorialBtn");
@@ -762,6 +766,37 @@ Answer Key:
       setTimeout(() => { btnEl.textContent = old; }, 900);
     } catch {
       window.prompt("Copy the text below:", text);
+    }
+  }
+
+  async function checkClipboardForQuiz() {
+    if (!navigator.clipboard?.readText || document.visibilityState !== "visible" || clipboardCheckInProgress) return;
+
+    let clipboardText;
+    clipboardCheckInProgress = true;
+    try {
+      clipboardText = (await navigator.clipboard.readText()).trim();
+    } catch {
+      // Clipboard access may be blocked outside HTTPS or until the user grants permission.
+      return;
+    } finally {
+      clipboardCheckInProgress = false;
+    }
+
+    if (landingEl.classList.contains("hidden")) return;
+    if (!clipboardText || clipboardText === jsonInput.value.trim() || clipboardText === lastClipboardOffered) return;
+
+    try {
+      parseAndValidateFlexible(clipboardText);
+    } catch {
+      return; // Clipboard content is not a recognized question set.
+    }
+
+    lastClipboardOffered = clipboardText;
+    if (confirm("New question set found in your clipboard. Import it?")) {
+      jsonInput.value = clipboardText;
+      clearError();
+      jsonInput.focus();
     }
   }
 
@@ -1034,6 +1069,7 @@ Each question should:
     landingEl.classList.toggle("hidden", which !== "landing");
     quizEl.classList.toggle("hidden", which !== "quiz");
     endEl.classList.toggle("hidden", which !== "end");
+    if (which === "landing") checkClipboardForQuiz();
   }
 
   function updateProgress() {
@@ -1158,6 +1194,7 @@ Each question should:
     endDetail.textContent = `You got ${right} right out of ${total}.` +
       (excludedCount ? ` ${excludedCount} question${excludedCount === 1 ? " was" : "s were"} excluded.` : "");
     reviewIncorrectBtn.disabled = right === total;
+    explainAllBtn.disabled = getAnsweredIncorrect().length === 0;
     reviewIndices = null;
 
     setView("end");
@@ -1166,25 +1203,39 @@ Each question should:
   function copyExplainPrompt() {
     const q = deck.questions[idx];
     const sel = selected[idx];
-    const selLetter = (sel === null || sel === undefined) ? "None" : letters[sel];
+    const questionNumber = q._originalIndex + 1;
 
     const prompt =
-`Explain this multiple-choice question and why each option is right/wrong. Keep it concise and Step/COMLEX-style.
-
-Question:
-${q.stem}
-
-Choices:
-A. ${q.choices[0]}
-B. ${q.choices[1]}
-C. ${q.choices[2]}
-D. ${q.choices[3]}
-E. ${q.choices[4]}
-
-My answer: ${selLetter}
-`;
+`for ${questionNumber}, i put ${letters[sel]} — ${q.choices[sel]}, can you please explain why that's wrong`;
 
     copyToClipboard(prompt, "Copied!", explainBtn);
+  }
+
+  function getAnsweredIncorrect() {
+    return deck.questions
+      .map((q, questionIndex) => ({ q, questionIndex }))
+      .filter(({ q, questionIndex }) =>
+        !excluded[questionIndex] &&
+        locked[questionIndex] &&
+        selected[questionIndex] !== q.answerIndex
+      )
+      .sort((a, b) => a.q._originalIndex - b.q._originalIndex);
+  }
+
+  function copyExplainAllPrompt() {
+    const lines = getAnsweredIncorrect().map(({ q, questionIndex }) => {
+      const choiceIndex = selected[questionIndex];
+      return `question ${q._originalIndex + 1} i put ${letters[choiceIndex]} — ${q.choices[choiceIndex]}`;
+    });
+
+    if (!lines.length) return;
+
+    const prompt =
+`ok heres what i got wrong,
+
+${lines.join("\n")}`;
+
+    copyToClipboard(prompt, "Copied!", explainAllBtn);
   }
 
   // ---------- Events ----------
@@ -1192,6 +1243,8 @@ My answer: ${selLetter}
     clearError();
     try {
       deck = parseAndValidateFlexible(jsonInput.value.trim());
+
+      deck.questions.forEach((q, originalIndex) => { q._originalIndex = originalIndex; });
 
       if (shuffleQuestionsInput.checked) shuffleInPlace(deck.questions);
 
@@ -1315,6 +1368,10 @@ My answer: ${selLetter}
     setView("quiz");
     renderQuestion();
   });
+
+  explainAllBtn.addEventListener("click", copyExplainAllPrompt);
+
+  window.addEventListener("load", checkClipboardForQuiz, { once: true });
 
   // keyboard shortcuts
   document.addEventListener("keydown", (e) => {
