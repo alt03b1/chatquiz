@@ -726,9 +726,14 @@ Answer Key:
 
       const newChoices = order.map(i => q.choices[i]);
       const newAnswerIndex = order.indexOf(q.answerIndex);
+      const originalChoiceIndices = Array.isArray(q._originalChoiceIndices)
+        ? q._originalChoiceIndices
+        : [0,1,2,3,4];
 
       q.choices = newChoices;
       q.answerIndex = newAnswerIndex;
+      // Keep the source A-E label attached to each choice after shuffling.
+      q._originalChoiceIndices = order.map(i => originalChoiceIndices[i]);
     });
 
     return d;
@@ -1204,9 +1209,10 @@ Each question should:
     const q = deck.questions[idx];
     const sel = selected[idx];
     const questionNumber = q._originalIndex + 1;
+    const originalChoiceIndex = q._originalChoiceIndices?.[sel] ?? sel;
 
     const prompt =
-`for ${questionNumber}, i put ${letters[sel]} — ${q.choices[sel]}, can you please explain why that's wrong`;
+`for ${questionNumber}, i put ${letters[originalChoiceIndex]} — ${q.choices[sel]}, can you please explain why that's wrong`;
 
     copyToClipboard(prompt, "Copied!", explainBtn);
   }
@@ -1225,7 +1231,8 @@ Each question should:
   function copyExplainAllPrompt() {
     const lines = getAnsweredIncorrect().map(({ q, questionIndex }) => {
       const choiceIndex = selected[questionIndex];
-      return `question ${q._originalIndex + 1} i put ${letters[choiceIndex]} — ${q.choices[choiceIndex]}`;
+      const originalChoiceIndex = q._originalChoiceIndices?.[choiceIndex] ?? choiceIndex;
+      return `question ${q._originalIndex + 1} i put ${letters[originalChoiceIndex]} — ${q.choices[choiceIndex]}`;
     });
 
     if (!lines.length) return;
